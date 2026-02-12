@@ -1,0 +1,131 @@
+import networkx as nx
+import matplotlib.pyplot as plt
+import random
+import time
+
+# -------------------------------
+# STEP 1: Create Network
+# -------------------------------
+def create_network():
+    G = nx.Graph()
+    # Add nodes
+    for i in range(1, 8):
+        G.add_node(i, status="active")  # all nodes start active
+    # Add edges (links)
+    edges = [
+        (1,2), (2,3), (3,4),
+        (4,5), (5,6), (6,7),
+        (2,5), (3,6)
+    ]
+    G.add_edges_from(edges, status="active")  # all links start active
+    return G
+
+# -------------------------------
+# STEP 2: Draw Network
+# -------------------------------
+def draw_network(G, title="Network"):
+    pos = nx.spring_layout(G)
+    node_colors = ['red' if G.nodes[n]["status"]=="failed" else 'lightgreen' for n in G.nodes()]
+    edge_colors = ['red' if G.edges[e]["status"]=="failed" else 'black' for e in G.edges()]
+    nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color=edge_colors, width=2)
+    plt.title(title)
+    plt.show()
+
+# -------------------------------
+# STEP 3: Inject Failures
+# -------------------------------
+def fail_node(G):
+    active_nodes = [n for n,d in G.nodes(data=True) if d["status"]=="active"]
+    if not active_nodes:
+        return None
+    node = random.choice(active_nodes)
+    G.nodes[node]["status"] = "failed"
+    print(f"Node {node} FAILED")
+    return node
+
+def fail_link(G):
+    active_edges = [e for e in G.edges if G.edges[e]["status"]=="active"]
+    if not active_edges:
+        return None
+    edge = random.choice(active_edges)
+    G.edges[edge]["status"] = "failed"
+    print(f"Link {edge} FAILED")
+    return edge
+
+# -------------------------------
+# STEP 4: Detect Failures
+# -------------------------------
+def detect_failures(G):
+    failed_nodes = [n for n,d in G.nodes(data=True) if d["status"]=="failed"]
+    failed_links = [e for e in G.edges if G.edges[e]["status"]=="failed"]
+    return failed_nodes, failed_links
+
+# -------------------------------
+# STEP 5: Healing Mechanisms
+# -------------------------------
+# 5.1 Rerouting using shortest path
+def heal_reroute(G, source, destination):
+    try:
+        temp_G = G.copy()
+        # Remove failed components temporarily
+        for n,d in G.nodes(data=True):
+            if d["status"]=="failed":
+                temp_G.remove_node(n)
+        for e in G.edges:
+            if G.edges[e]["status"]=="failed":
+                temp_G.remove_edge(*e)
+        path = nx.shortest_path(temp_G, source, destination)
+        print(f"New route from {source} to {destination}: {path}")
+        return path
+    except nx.NetworkXNoPath:
+        print(f"No available path from {source} to {destination}!")
+        return None
+
+# 5.2 Repair failed links
+def repair_links(G):
+    for e in G.edges:
+        if G.edges[e]["status"]=="failed":
+            G.edges[e]["status"] = "active"
+            print(f"Link {e} repaired automatically")
+
+# -------------------------------
+# STEP 6: Performance Metrics
+# -------------------------------
+def network_metrics(G):
+    connected = nx.is_connected(G.subgraph([n for n,d in G.nodes(data=True) if d["status"]=="active"]))
+    print("Network connected:", connected)
+    return connected
+
+# -------------------------------
+# STEP 7: Simulation Loop
+# -------------------------------
+def simulate():
+    # Step 1: Initialize network
+    G = create_network()
+    draw_network(G, "Initial Network Topology")
+
+    time.sleep(1)
+
+    # Step 2: Inject failures
+    fail_node(G)
+    fail_link(G)
+
+    # Step 3: Detect failures
+    failed_nodes, failed_links = detect_failures(G)
+    print("Detected failures:", failed_nodes, failed_links)
+    draw_network(G, "Network After Failures")
+    time.sleep(1)
+
+    # Step 4: Healing
+    heal_reroute(G, 1, 7)  # example: check path from node 1 to node 7
+    repair_links(G)
+    draw_network(G, "Network After Healing")
+
+    # Step 5: Metrics
+    network_metrics(G)
+
+# -------------------------------
+# Run Simulation
+# -------------------------------
+if __name__ == "__main__":
+    simulate()
